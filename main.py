@@ -13,7 +13,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-API_KEY = "a93a3f678d8bbbd79d19039760a518d1"
+API_KEY = "1a79d5efe76760ff32676870d1cce521"
 
 # ================= WEATHER =================
 @app.get("/weather")
