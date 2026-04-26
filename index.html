@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AgroAI</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body {background:#0f172a;color:white;font-family:Arial;text-align:center;}
+.card{background:#1e293b;margin:10px;padding:15px;border-radius:10px;cursor:pointer;}
+.card:hover{background:#334155;}
+.live-box{background:#1e293b;padding:20px;border-radius:10px;}
+.upload-box{background:#1e293b;padding:15px;border-radius:10px;margin-top:20px;}
+.chatbot-box{position:fixed;bottom:80px;right:20px;width:260px;background:#1e293b;padding:10px;display:none;}
+.chatbot{position:fixed;bottom:20px;right:20px;background:#22c55e;padding:12px;border-radius:50%;cursor:pointer;}
+</style>
+</head>
+
+<body>
+
+<h2>🌱 AgroAI</h2>
+
+<!-- FEATURES -->
+<div>
+  <div class="card" onclick="showFeature('rain')">🌧 Rain</div>
+  <div class="card" onclick="showFeature('advisory')">📊 Advisory</div>
+  <div class="card" onclick="showFeature('alert')">⚠ Alerts</div>
+  <div class="card" onclick="showFeature('irrigation')">💧 Irrigation</div>
+  <div class="card" onclick="showFeature('disease')">🌿 Disease</div>
+</div>
+
+<!-- WEATHER -->
+<input id="cityInput" placeholder="Enter city">
+<button onclick="changeCity()">Get</button>
+
+<div class="live-box">
+  <p id="cityName">--</p>
+  <p>🌧 Rain: <span id="rain">--</span>%</p>
+  <p>🌡 Temp: <span id="temp">--</span>°C</p>
+  <p id="adv">--</p>
+</div>
+
+<canvas id="weatherChart"></canvas>
+
+<div id="featureBox">Click feature</div>
+
+<!-- IMAGE AI -->
+<div class="upload-box">
+  <input type="file" id="imageInput">
+  <img id="preview" width="150">
+  <p id="result"></p>
+</div>
+
+<!-- CHATBOT -->
+<div class="chatbot-box" id="chatbox">
+  <div id="chatOutput"></div>
+  <input id="chatInput">
+  <button onclick="sendMsg()">Send</button>
+</div>
+
+<div class="chatbot" onclick="toggleChat()">💬</div>
+
+<script>
+
+let currentCity="Bhopal";
+let chart,temps=[],rains=[],labels=[];
+
+// GRAPH
+function updateChart(temp,rain){
+  labels.push(new Date().toLocaleTimeString());
+  temps.push(temp);
+  rains.push(rain);
+
+  if(chart) chart.destroy();
+
+  chart=new Chart(document.getElementById("weatherChart"),{
+    type:"line",
+    data:{
+      labels:labels,
+      datasets:[
+        {label:"Temp",data:temps},
+        {label:"Rain",data:rains}
+      ]
+    }
+  });
+}
+
+// WEATHER
+async function getWeather(){
+  let res = await fetch(`http://127.0.0.1:8000/weather?city=${currentCity}`);
+  let data = await res.json();
+  updateUI(data,currentCity);
+}
+
+// LOCATION
+function getLocationWeather(){
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    let res = await fetch(`http://127.0.0.1:8000/weather?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
+    let data = await res.json();
+    updateUI(data,"Your Location 📍");
+  });
+}
+
+// UI UPDATE
+function updateUI(data,city){
+  document.getElementById("cityName").innerText=city;
+  document.getElementById("rain").innerText=data.rain;
+  document.getElementById("temp").innerText=data.temperature;
+  document.getElementById("adv").innerText=data.advisory;
+
+  updateChart(data.temperature,data.rain);
+}
+
+// FEATURES
+function showFeature(type){
+  let r=document.getElementById("rain").innerText;
+  let t=document.getElementById("temp").innerText;
+
+  if(type=="rain") featureBox.innerText="Rain: "+r+"%";
+  else if(type=="advisory") featureBox.innerText=t>35?"🔥 Water crops":"✅ Normal";
+  else if(type=="alert") featureBox.innerText=r>70?"⚠ Rain alert":t>40?"⚠ Heatwave":"Safe";
+  else if(type=="irrigation") featureBox.innerText="💧 Evening best";
+  else featureBox.innerText=r>60?"🌿 Fungus risk":"🌿 Safe";
+}
+
+// IMAGE AI
+document.getElementById("imageInput").onchange=async e=>{
+  let file=e.target.files[0];
+  document.getElementById("preview").src=URL.createObjectURL(file);
+
+  let fd=new FormData();
+  fd.append("file",file);
+
+  let res=await fetch("http://127.0.0.1:8000/predict",{method:"POST",body:fd});
+  let data=await res.json();
+
+  document.getElementById("result").innerText=data.result;
+}
+
+// CHATBOT
+function toggleChat(){
+  let box=document.getElementById("chatbox");
+  box.style.display=box.style.display=="none"?"block":"none";
+}
+
+async function sendMsg(){
+  let input=document.getElementById("chatInput").value;
+
+  document.getElementById("chatOutput").innerHTML += `<div>👨 ${input}</div>`;
+
+  let res=await fetch("http://127.0.0.1:8000/chat",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({message:input})
+  });
+
+  let data=await res.json();
+
+  document.getElementById("chatOutput").innerHTML += `<div>🤖 ${data.reply}</div>`;
+
+  document.getElementById("chatInput").value="";
+}
+
+// CITY
+function changeCity(){
+  currentCity=document.getElementById("cityInput").value;
+  getWeather();
+}
+
+// START
+getWeather();
+
+</script>
+
+</body>
+</html>
