@@ -4,7 +4,6 @@ import requests
 
 app = FastAPI()
 
-# CORS (frontend connect ke liye)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -15,7 +14,6 @@ app.add_middleware(
 
 API_KEY = "1a79d5efe76760ff32676870d1cce521"
 
-# ================= WEATHER =================
 @app.get("/weather")
 def get_weather(lat: float = None, lon: float = None, city: str = None):
 
@@ -29,7 +27,7 @@ def get_weather(lat: float = None, lon: float = None, city: str = None):
         res = requests.get(url)
         data = res.json()
 
-        # 🔴 important safety check
+        # 🔴 IMPORTANT check
         if "main" not in data:
             return {"error": data.get("message", "Invalid API / City")}
 
@@ -55,33 +53,5 @@ def get_weather(lat: float = None, lon: float = None, city: str = None):
             "hindi": advisory_hindi
         }
 
-    except:
-        return {"error": "Weather fetch failed"}
-
-# ================= IMAGE AI =================
-@app.post("/predict")
-async def predict(file: UploadFile = File(...)):
-    filename = file.filename.lower()
-
-    if "leaf" in filename:
-        result = "🌿 Leaf disease detected"
-    elif "dry" in filename:
-        result = "🌿 Crop drying (heat stress)"
-    else:
-        result = "🌿 Healthy crop"
-
-    return {"result": result}
-
-# ================= CHATBOT =================
-@app.post("/chat")
-async def chat(data: dict):
-    msg = data.get("message","").lower()
-
-    if "rain" in msg:
-        reply = "🌧 Rain expected, irrigation avoid"
-    elif "heat" in msg:
-        reply = "🔥 Give water to crops"
-    else:
-        reply = "🌱 Crop looks fine"
-
-    return {"reply": reply}
+    except Exception as e:
+        return {"error": str(e)}
