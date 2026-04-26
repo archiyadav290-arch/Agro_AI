@@ -14,6 +14,10 @@ app.add_middleware(
 
 API_KEY = "1a79d5efe76760ff32676870d1cce521"
 
+@app.get("/")
+def home():
+    return {"message": "AgroAI Backend Running 🚀"}
+
 @app.get("/weather")
 def get_weather(lat: float = None, lon: float = None, city: str = None):
 
