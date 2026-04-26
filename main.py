@@ -21,13 +21,17 @@ def get_weather(lat: float = None, lon: float = None, city: str = None):
 
     try:
         if lat and lon:
-            url = f"http://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={API_KEY}&units=metric"
+            url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={API_KEY}&units=metric"
         else:
             city = city or "Bhopal"
-            url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={API_KEY}&units=metric"
+            url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={API_KEY}&units=metric"
 
         res = requests.get(url)
         data = res.json()
+
+        # 🔴 important safety check
+        if "main" not in data:
+            return {"error": data.get("message", "Invalid API / City")}
 
         temp = data["main"]["temp"]
         humidity = data["main"]["humidity"]
