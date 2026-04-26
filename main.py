@@ -1,10 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 import requests
 
 app = FastAPI()
 
-# CORS (frontend connect ke liye)
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -13,8 +13,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-API_KEY = "a93a3f678d8bbbd79d19039760a518d1"
+API_KEY = "bdcc1823640c874e5460a5db766b62b2"
 
+# ================= WEATHER =================
 @app.get("/weather")
 def get_weather(lat: float = None, lon: float = None, city: str = None):
 
@@ -48,3 +49,31 @@ def get_weather(lat: float = None, lon: float = None, city: str = None):
         "advisory": advisory,
         "hindi": advisory_hindi
     }
+
+# ================= IMAGE AI =================
+@app.post("/predict")
+async def predict(file: UploadFile = File(...)):
+    filename = file.filename.lower()
+
+    if "leaf" in filename:
+        result = "🌿 Leaf disease detected"
+    elif "dry" in filename:
+        result = "🌿 Crop drying (heat stress)"
+    else:
+        result = "🌿 Healthy crop"
+
+    return {"result": result}
+
+# ================= CHATBOT =================
+@app.post("/chat")
+async def chat(data: dict):
+    msg = data.get("message","").lower()
+
+    if "rain" in msg:
+        reply = "🌧 Rain expected, irrigation avoid"
+    elif "heat" in msg:
+        reply = "🔥 Give water to crops"
+    else:
+        reply = "🌱 Crop looks fine"
+
+    return {"reply": reply}
