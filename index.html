@@ -21,7 +21,6 @@ body {background:#0f172a;color:white;font-family:Arial;text-align:center;}
 
 <h2>🌱 AgroAI</h2>
 
-<!-- FEATURES -->
 <div>
   <div class="card" onclick="showFeature('rain')">🌧 Rain</div>
   <div class="card" onclick="showFeature('advisory')">📊 Advisory</div>
@@ -30,7 +29,6 @@ body {background:#0f172a;color:white;font-family:Arial;text-align:center;}
   <div class="card" onclick="showFeature('disease')">🌿 Disease</div>
 </div>
 
-<!-- WEATHER -->
 <input id="cityInput" placeholder="Enter city">
 <button onclick="changeCity()">Get</button>
 
@@ -45,14 +43,12 @@ body {background:#0f172a;color:white;font-family:Arial;text-align:center;}
 
 <div id="featureBox">Click feature</div>
 
-<!-- IMAGE AI -->
 <div class="upload-box">
   <input type="file" id="imageInput">
   <img id="preview" width="150">
   <p id="result"></p>
 </div>
 
-<!-- CHATBOT -->
 <div class="chatbot-box" id="chatbox">
   <div id="chatOutput"></div>
   <input id="chatInput">
@@ -88,7 +84,7 @@ function updateChart(temp,rain){
 
 // WEATHER
 async function getWeather(){
-  let res = await fetch(`http://127.0.0.1:8000/weather?city=${currentCity}`);
+  let res = await fetch(`https://agro-ai-uhvv.onrender.com/weather?city=${currentCity}`);
   let data = await res.json();
   updateUI(data,currentCity);
 }
@@ -96,7 +92,7 @@ async function getWeather(){
 // LOCATION
 function getLocationWeather(){
   navigator.geolocation.getCurrentPosition(async pos=>{
-    let res = await fetch(`http://127.0.0.1:8000/weather?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
+    let res = await fetch(`https://agro-ai-uhvv.onrender.com/weather?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
     let data = await res.json();
     updateUI(data,"Your Location 📍");
   });
@@ -132,7 +128,7 @@ document.getElementById("imageInput").onchange=async e=>{
   let fd=new FormData();
   fd.append("file",file);
 
-  let res=await fetch("http://127.0.0.1:8000/predict",{method:"POST",body:fd});
+  let res = await fetch("https://agro-ai-uhvv.onrender.com/predict",{method:"POST",body:fd});
   let data=await res.json();
 
   document.getElementById("result").innerText=data.result;
@@ -149,7 +145,7 @@ async function sendMsg(){
 
   document.getElementById("chatOutput").innerHTML += `<div>👨 ${input}</div>`;
 
-  let res=await fetch("http://127.0.0.1:8000/chat",{
+  let res = await fetch("https://agro-ai-uhvv.onrender.com/chat",{
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify({message:input})
