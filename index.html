@@ -88,7 +88,7 @@ function updateChart(temp,rain){
 
 // WEATHER
 async function getWeather(){
-  let res = await fetch(`http://127.0.0.1:8000/weather?city=${currentCity}`);
+  let res = await fetch(`https://agro-ai-uhvv.onrender.com/weather?city=${currentCity}`);
   let data = await res.json();
   updateUI(data,currentCity);
 }
@@ -96,7 +96,7 @@ async function getWeather(){
 // LOCATION
 function getLocationWeather(){
   navigator.geolocation.getCurrentPosition(async pos=>{
-    let res = await fetch(`http://127.0.0.1:8000/weather?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
+    let res = await fetch(`https://agro-ai-uhvv.onrender.com/weather?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
     let data = await res.json();
     updateUI(data,"Your Location 📍");
   });
@@ -132,7 +132,7 @@ document.getElementById("imageInput").onchange=async e=>{
   let fd=new FormData();
   fd.append("file",file);
 
-  let res=await fetch("http://127.0.0.1:8000/predict",{method:"POST",body:fd});
+  let res = await fetch("https://agro-ai-uhvv.onrender.com/predict",{method:"POST",body:fd});
   let data=await res.json();
 
   document.getElementById("result").innerText=data.result;
@@ -149,11 +149,7 @@ async function sendMsg(){
 
   document.getElementById("chatOutput").innerHTML += `<div>👨 ${input}</div>`;
 
-  let res=await fetch("http://127.0.0.1:8000/chat",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({message:input})
-  });
+  let res = await fetch("https://agro-ai-uhvv.onrender.com/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:input})});
 
   let data=await res.json();
 
