@@ -62,8 +62,6 @@ body {background:#0f172a;color:white;font-family:Arial;text-align:center;}
 </style>
 </head>
 
-<!-- SAME HEAD & CSS (NO CHANGE) -->
-
 <body>
 
 <h2>🌱 AgroAI Pro</h2>
@@ -75,7 +73,6 @@ body {background:#0f172a;color:white;font-family:Arial;text-align:center;}
   <div class="card" onclick="showFeature('irrigation')">💧 Irrigation</div>
   <div class="card" onclick="showFeature('disease')">🌿 Disease</div>
 
-  <!-- 🔥 NEW BUTTONS -->
   <div class="card" onclick="loadForecast()">📈 ML Forecast</div>
   <div class="card" onclick="sendSMS()">📩 SMS</div>
 </div>
@@ -95,7 +92,6 @@ body {background:#0f172a;color:white;font-family:Arial;text-align:center;}
 
 <div id="featureBox">Click feature</div>
 
-<!-- AI SECTION -->
 <div class="extra">
   <h3>🤖 AI Insights</h3>
   <p id="risk">Risk: --</p>
@@ -105,12 +101,20 @@ body {background:#0f172a;color:white;font-family:Arial;text-align:center;}
   <p id="cropAlert">Crop Alert: --</p>
 </div>
 
-<!-- VOICE -->
 <div class="extra">
-  <button onclick="speak()">🔊 Voice Advisory</button>
+  <h3>🌾 Smart Farming AI</h3>
+
+  <select id="soilType">
+    <option value="loamy">Loamy Soil</option>
+    <option value="clay">Clay Soil</option>
+    <option value="sandy">Sandy Soil</option>
+  </select>
+
+  <p id="cropReco">Crop: --</p>
+  <p id="profit">Profit: --</p>
+  <p id="decision">Decision: --</p>
 </div>
 
-<!-- WHATSAPP -->
 <div class="extra">
   <button onclick="sendWhatsApp()">📲 Send WhatsApp Alert</button>
 </div>
@@ -134,7 +138,7 @@ body {background:#0f172a;color:white;font-family:Arial;text-align:center;}
 let currentCity="Bhopal";
 let chart,temps=[],rains=[],labels=[];
 
-// GRAPH (REAL TIME)
+// GRAPH
 function updateChart(temp,rain){
   labels.push(new Date().toLocaleTimeString());
   temps.push(temp);
@@ -154,7 +158,7 @@ function updateChart(temp,rain){
   });
 }
 
-// WEATHER (BACKEND CONNECTED)
+// WEATHER
 async function getWeather(){
   let res = await fetch(`https://agro-ai-uhyv.onrender.com/weather?city=${currentCity}`);
   let data = await res.json();
@@ -170,32 +174,73 @@ function getLocationWeather(){
   });
 }
 
-// 🔥 UPDATED UI (REAL AI FROM BACKEND)
+// UI UPDATE
 function updateUI(data,city){
 
   document.getElementById("cityName").innerText=city;
   document.getElementById("rain").innerText=data.rain;
   document.getElementById("temp").innerText=data.temperature;
 
-  // ✅ Hindi + English advisory
+  // 🌾 SMART FARMING
+  let soil = document.getElementById("soilType").value;
+
+  let crop = getCrop(data.temperature, data.rain, soil);
+  document.getElementById("cropReco").innerText = "Crop: " + crop;
+  document.getElementById("profit").innerText = "Profit: " + getProfit(crop);
+  document.getElementById("decision").innerText =
+    "Decision: " + getDecision(data.temperature, data.rain);
+
   document.getElementById("adv").innerText =
     data.advisory + " | " + data.advisory_hi;
 
-  // ✅ REAL AI (backend)
   document.getElementById("risk").innerText = "Risk: " + data.risk;
   document.getElementById("risk_hi").innerText = "जोखिम: " + data.risk_hi;
 
   document.getElementById("irrigation").innerText = "Irrigation: " + data.irrigation;
   document.getElementById("irrigation_hi").innerText = "सिंचाई: " + data.irrigation_hi;
 
-  // optional crop alert (simple)
   document.getElementById("cropAlert").innerText =
     data.rain > 60 ? "🌿 Fungus Risk" : "🌿 Healthy";
 
   updateChart(data.temperature,data.rain);
 }
 
-// FEATURE BOX (same)
+// CROP
+function getCrop(temp,rain,soil){
+  if(soil=="loamy"){
+    if(rain>60) return "🌾 Rice";
+    if(temp>30) return "🌽 Maize";
+    return "🌿 Wheat";
+  }
+  if(soil=="clay"){
+    if(rain>70) return "🌾 Rice";
+    return "🌿 Sugarcane";
+  }
+  if(soil=="sandy"){
+    if(temp>35) return "🌵 Millet";
+    return "🌿 Groundnut";
+  }
+  return "🌿 Wheat";
+}
+
+// PROFIT
+function getProfit(crop){
+  if(crop.includes("Rice")) return "₹40K / acre";
+  if(crop.includes("Wheat")) return "₹30K / acre";
+  if(crop.includes("Maize")) return "₹35K / acre";
+  if(crop.includes("Sugarcane")) return "₹50K / acre";
+  if(crop.includes("Millet")) return "₹25K / acre";
+  return "₹20K / acre";
+}
+
+// DECISION
+function getDecision(temp,rain){
+  if(rain>70) return "🚫 Avoid farming today";
+  if(temp>40) return "🌅 Work in evening only";
+  return "✅ Safe for farming";
+}
+
+// FEATURE
 function showFeature(type){
   let r=parseInt(rain.innerText);
   let t=parseInt(temp.innerText);
@@ -207,26 +252,25 @@ function showFeature(type){
   else featureBox.innerText=r>60?"🌿 Fungus Risk":"🌿 Healthy";
 }
 
-// 🔊 VOICE
+// VOICE
 function speak(){
-  let text=document.getElementById("adv").innerText;
-  let msg=new SpeechSynthesisUtterance(text);
+  let msg=new SpeechSynthesisUtterance(document.getElementById("adv").innerText);
   msg.lang="hi-IN";
   speechSynthesis.speak(msg);
 }
 
-// 📲 WHATSAPP
+// WHATSAPP
 function sendWhatsApp(){
   let text=document.getElementById("adv").innerText;
   window.open(`https://wa.me/?text=${encodeURIComponent(text)}`);
 }
 
-// 📩 SMS DEMO
+// SMS
 function sendSMS(){
-  alert("📩 SMS sent to farmer (Demo)");
+  alert("📩 SMS sent (Demo)");
 }
 
-// 📈 ML FORECAST
+// FORECAST
 async function loadForecast(){
   let res = await fetch("https://agro-ai-uhyv.onrender.com/forecast");
   let data = await res.json();
@@ -253,7 +297,7 @@ async function loadForecast(){
   });
 }
 
-// IMAGE AI (same)
+// IMAGE
 imageInput.onchange=async e=>{
   let file=e.target.files[0];
   preview.src=URL.createObjectURL(file);
@@ -267,7 +311,7 @@ imageInput.onchange=async e=>{
   result.innerText=data.result;
 }
 
-// CHATBOT (IMPROVED)
+// CHATBOT
 function toggleChat(){
   chatbox.style.display=chatbox.style.display=="none"?"block":"none";
 }
@@ -283,8 +327,6 @@ async function sendMsg(){
   });
 
   let data=await res.json();
-
-  // ✅ Hindi + English
   chatOutput.innerHTML+=`<div>🤖 ${data.reply} / ${data.reply_hi}</div>`;
   chatInput.value="";
 }
@@ -295,8 +337,14 @@ function changeCity(){
   getWeather();
 }
 
+// 🔥 AUTO UPDATE ON SOIL CHANGE
+document.getElementById("soilType").onchange = () => {
+  getWeather();
+};
+
 getWeather();
 
 </script>
 
 </body>
+</html>
