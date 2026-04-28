@@ -2,6 +2,8 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 import requests
 import random
+from gtts import gTTS
+import os
 
 app = FastAPI()
 
@@ -13,89 +15,90 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-API_KEY = "1a79d5efe76760ff32676870d1cce521"
+API_KEY = "YOUR_API_KEY"
 
+# ================= HOME =================
 @app.get("/")
 def home():
-    return {"message": "AgroAI Backend Running 🚀"}
+    return {"message": "AgroAI PRO Backend Running 🚀"}
 
-# ================= WEATHER + AI =================
+# ================= WEATHER + SMART AI =================
 @app.get("/weather")
 def get_weather(lat: float = None, lon: float = None, city: str = None):
 
-    try:
-        if lat and lon:
-            url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={API_KEY}&units=metric"
-        else:
-            city = city or "Bhopal"
-            url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={API_KEY}&units=metric"
+    if lat and lon:
+        url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={API_KEY}&units=metric"
+    else:
+        city = city or "Bhopal"
+        url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={API_KEY}&units=metric"
 
-        res = requests.get(url)
-        data = res.json()
+    res = requests.get(url)
+    data = res.json()
 
-        # 🔴 SAFETY CHECK (IMPORTANT)
-        if "main" not in data:
-            return {"error": data.get("message", "Invalid API / City")}
+    if "main" not in data:
+        return {"error": data.get("message", "Invalid API")}
 
-        temp = data["main"]["temp"]
-        humidity = data["main"]["humidity"]
+    temp = data["main"]["temp"]
+    humidity = data["main"]["humidity"]
 
-        # 🌧 Smart Rain Prediction
-        rain = int((humidity * 0.6) + random.randint(0, 20))
+    # 🌧 Rain prediction (improved logic)
+    rain = int((humidity * 0.7) + random.randint(0, 15))
 
-        # ================= AI ADVISORY =================
-        if rain > 70:
-            advisory = "Heavy rainfall expected. Avoid irrigation."
-            advisory_hi = "भारी बारिश की संभावना है, सिंचाई न करें"
-            risk = "⚠ Flood Risk High"
-            risk_hi = "⚠ बाढ़ का खतरा"
-            irrigation = "❌ Stop irrigation"
-            irrigation_hi = "❌ सिंचाई रोकें"
+    # ================= DECISION ENGINE =================
 
-        elif temp > 38:
-            advisory = "High heat detected. Crops need water."
-            advisory_hi = "तेज गर्मी है, फसलों को पानी दें"
-            risk = "🔥 Heatwave Risk"
-            risk_hi = "🔥 लू का खतरा"
-            irrigation = "💧 Irrigate in evening"
-            irrigation_hi = "💧 शाम को सिंचाई करें"
+    # 🌾 Irrigation Decision
+    if rain > 70:
+        irrigation = "STOP irrigation"
+        irrigation_hi = "सिंचाई रोकें"
+    elif temp > 35:
+        irrigation = "Irrigate in evening"
+        irrigation_hi = "शाम को सिंचाई करें"
+    else:
+        irrigation = "Normal irrigation"
+        irrigation_hi = "सामान्य सिंचाई करें"
 
-        elif humidity > 80:
-            advisory = "High humidity may cause fungal diseases."
-            advisory_hi = "अधिक नमी से फंगल रोग हो सकते हैं"
-            risk = "🌿 Disease Risk"
-            risk_hi = "🌿 रोग का खतरा"
-            irrigation = "⚠ Controlled irrigation"
-            irrigation_hi = "⚠ सीमित सिंचाई करें"
+    # 🌿 Disease Risk
+    if humidity > 80:
+        disease = "High fungal disease risk"
+        disease_hi = "फंगल रोग का खतरा"
+        pesticide = "Spray fungicide"
+        pesticide_hi = "फंगीसाइड का छिड़काव करें"
+    else:
+        disease = "Low disease risk"
+        disease_hi = "कम रोग खतरा"
+        pesticide = "No spray needed"
+        pesticide_hi = "कोई दवा आवश्यक नहीं"
 
-        else:
-            advisory = "Weather conditions are normal."
-            advisory_hi = "मौसम सामान्य है"
-            risk = "✅ Low Risk"
-            risk_hi = "✅ कोई बड़ा खतरा नहीं"
-            irrigation = "🌿 Normal irrigation"
-            irrigation_hi = "🌿 सामान्य सिंचाई करें"
+    # ⚠ Risk scoring
+    risk_score = (temp / 50) + (humidity / 100) + (rain / 100)
 
-        # 🔥 FRONTEND COMPATIBILITY (OLD + NEW)
-        return {
-            "temperature": temp,
-            "rain": rain,
+    if risk_score > 2:
+        risk = "HIGH RISK"
+        risk_hi = "उच्च खतरा"
+    elif risk_score > 1.2:
+        risk = "MEDIUM RISK"
+        risk_hi = "मध्यम खतरा"
+    else:
+        risk = "LOW RISK"
+        risk_hi = "कम खतरा"
 
-            # old frontend keys (important)
-            "advisory": advisory,
-            "hindi": advisory_hi,
+    return {
+        "temperature": temp,
+        "humidity": humidity,
+        "rain_probability": rain,
 
-            # new pro keys
-            "advisory_hi": advisory_hi,
-            "risk": risk,
-            "risk_hi": risk_hi,
-            "irrigation": irrigation,
-            "irrigation_hi": irrigation_hi
-        }
+        "irrigation": irrigation,
+        "irrigation_hi": irrigation_hi,
 
-    except Exception as e:
-        return {"error": str(e)}
+        "disease": disease,
+        "disease_hi": disease_hi,
 
+        "pesticide": pesticide,
+        "pesticide_hi": pesticide_hi,
+
+        "risk": risk,
+        "risk_hi": risk_hi
+    }
 
 # ================= IMAGE AI =================
 @app.post("/predict")
@@ -103,61 +106,58 @@ async def predict(file: UploadFile = File(...)):
     filename = file.filename.lower()
 
     if "leaf" in filename:
-        result = "🌿 Leaf disease detected"
-        result_hi = "🌿 पत्ते में रोग पाया गया"
-    elif "dry" in filename:
-        result = "🔥 Crop drying (heat stress)"
-        result_hi = "🔥 फसल सूख रही है"
-    else:
-        result = "✅ Healthy crop"
-        result_hi = "✅ फसल स्वस्थ है"
+        return {
+            "result": "Leaf disease detected",
+            "result_hi": "पत्ते में रोग पाया गया",
+            "solution": "Apply fungicide spray",
+            "solution_hi": "फंगीसाइड का उपयोग करें"
+        }
 
     return {
-        "result": result,
-        "result_hi": result_hi
+        "result": "Healthy crop",
+        "result_hi": "फसल स्वस्थ है"
     }
 
-
-# ================= CHATBOT =================
+# ================= SMART CHATBOT =================
 @app.post("/chat")
 async def chat(data: dict):
     msg = data.get("message","").lower()
 
-    if "rain" in msg:
-        reply = "🌧 Rain expected. Avoid irrigation."
-        reply_hi = "🌧 बारिश की संभावना है"
+    if "irrigation" in msg:
+        return {"reply": "Check soil moisture & weather", "reply_hi": "मिट्टी और मौसम देखें"}
 
-    elif "heat" in msg:
-        reply = "🔥 High heat. Water crops."
-        reply_hi = "🔥 गर्मी ज्यादा है"
+    elif "pesticide" in msg:
+        return {"reply": "Spray only if disease risk high", "reply_hi": "रोग होने पर ही दवा डालें"}
 
-    elif "disease" in msg:
-        reply = "🌿 Disease risk detected."
-        reply_hi = "🌿 रोग का खतरा है"
+    return {"reply": "Monitoring is important", "reply_hi": "नियमित निगरानी जरूरी है"}
 
-    elif "irrigation" in msg:
-        reply = "💧 Best time: morning or evening"
-        reply_hi = "💧 सिंचाई सुबह/शाम करें"
+# ================= VOICE ASSISTANT =================
+@app.post("/voice")
+async def voice(data: dict):
+    text = data.get("text", "मौसम सामान्य है")
 
-    else:
-        reply = "🤖 Monitor weather regularly"
-        reply_hi = "🤖 मौसम पर नजर रखें"
+    tts = gTTS(text=text, lang='hi')
+    file_path = "voice.mp3"
+    tts.save(file_path)
 
-    return {
-        "reply": reply,
-        "reply_hi": reply_hi
-    }
+    return {"audio_file": file_path}
 
-
-# ================= ALERT =================
+# ================= ALERT SYSTEM =================
 @app.get("/alert")
-def get_alert(temp: float = 30, rain: int = 20):
+def alert(temp: float = 30, rain: int = 20, humidity: int = 50):
+
+    alerts = []
 
     if rain > 75:
-        return {"alert": "🚨 Heavy Rain Alert!"}
+        alerts.append("🚨 Heavy Rain Alert")
 
-    elif temp > 40:
-        return {"alert": "🔥 Heatwave Alert!"}
+    if temp > 40:
+        alerts.append("🔥 Heatwave Alert")
 
-    else:
-        return {"alert": "✅ No major risk"}
+    if humidity > 85:
+        alerts.append("🌿 Disease Risk Alert")
+
+    if not alerts:
+        alerts.append("✅ All conditions normal")
+
+    return {"alerts": alerts}
