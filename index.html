@@ -19,28 +19,11 @@ body {background:#0f172a;color:white;font-family:Arial;text-align:center;}
 }
 .card:hover{background:#334155;}
 
-.live-box{
+.box{
   background:#1e293b;
   padding:20px;
   border-radius:10px;
   margin-top:10px;
-}
-
-.upload-box{
-  background:#1e293b;
-  padding:15px;
-  border-radius:10px;
-  margin-top:20px;
-}
-
-.chatbot-box{
-  position:fixed;
-  bottom:80px;
-  right:20px;
-  width:260px;
-  background:#1e293b;
-  padding:10px;
-  display:none;
 }
 
 .chatbot{
@@ -52,13 +35,6 @@ body {background:#0f172a;color:white;font-family:Arial;text-align:center;}
   border-radius:50%;
   cursor:pointer;
 }
-
-.extra{
-  background:#1e293b;
-  margin-top:15px;
-  padding:15px;
-  border-radius:10px;
-}
 </style>
 </head>
 
@@ -66,65 +42,55 @@ body {background:#0f172a;color:white;font-family:Arial;text-align:center;}
 
 <h2>🌱 AgroAI Pro</h2>
 
-<div>
-  <div class="card" onclick="showFeature('rain')">🌧 Rain</div>
-  <div class="card" onclick="showFeature('advisory')">📊 Advisory</div>
-  <div class="card" onclick="showFeature('alert')">⚠ Alerts</div>
-  <div class="card" onclick="showFeature('irrigation')">💧 Irrigation</div>
-  <div class="card" onclick="showFeature('disease')">🌿 Disease</div>
-</div>
-
 <input id="cityInput" placeholder="Enter city">
 <button onclick="changeCity()">Get</button>
 <button onclick="getLocationWeather()">📍 Location</button>
 
-<div class="live-box">
-  <p id="cityName">--</p>
-  <p>🌧 Rain: <span id="rain">--</span>%</p>
+<div class="box">
+  <h3 id="cityName">--</h3>
   <p>🌡 Temp: <span id="temp">--</span>°C</p>
-  <p id="adv">Loading...</p>
+  <p>💧 Humidity: <span id="humidity">--</span>%</p>
+  <p>🌧 Rain: <span id="rain">--</span>%</p>
 </div>
 
 <canvas id="weatherChart"></canvas>
 
-<div id="featureBox">Click feature</div>
-
-<!-- NEW AI SECTION -->
-<div class="extra">
+<!-- AI OUTPUT -->
+<div class="box">
   <h3>🤖 AI Insights</h3>
   <p id="risk">Risk: --</p>
   <p id="irrigation">Irrigation: --</p>
-  <p id="cropAlert">Crop Alert: --</p>
+  <p id="disease">Disease: --</p>
+  <p id="pesticide">Pesticide: --</p>
+</div>
+
+<!-- ALERT -->
+<div class="box">
+  <h3>⚠ Alerts</h3>
+  <p id="alerts">--</p>
 </div>
 
 <!-- VOICE -->
-<div class="extra">
-  <button onclick="speak()">🔊 Voice Advisory</button>
+<div class="box">
+  <button onclick="playVoice()">🔊 Voice Advisory</button>
 </div>
 
-<!-- WHATSAPP DEMO -->
-<div class="extra">
+<!-- WHATSAPP -->
+<div class="box">
   <button onclick="sendWhatsApp()">📲 Send WhatsApp Alert</button>
 </div>
 
-<div class="upload-box">
+<!-- IMAGE -->
+<div class="box">
   <input type="file" id="imageInput">
-  <img id="preview" width="150">
   <p id="result"></p>
 </div>
-
-<div class="chatbot-box" id="chatbox">
-  <div id="chatOutput"></div>
-  <input id="chatInput">
-  <button onclick="sendMsg()">Send</button>
-</div>
-
-<div class="chatbot" onclick="toggleChat()">💬</div>
 
 <script>
 
 let currentCity="Bhopal";
 let chart,temps=[],rains=[],labels=[];
+let lastData=null;
 
 // GRAPH
 function updateChart(temp,rain){
@@ -137,7 +103,7 @@ function updateChart(temp,rain){
   chart=new Chart(document.getElementById("weatherChart"),{
     type:"line",
     data:{
-      labels:labels,
+      labels,
       datasets:[
         {label:"Temp",data:temps},
         {label:"Rain",data:rains}
@@ -150,6 +116,13 @@ function updateChart(temp,rain){
 async function getWeather(){
   let res = await fetch(`https://agro-ai-uhyv.onrender.com/weather?city=${currentCity}`);
   let data = await res.json();
+
+  if(data.error){
+    alert(data.error);
+    return;
+  }
+
+  lastData=data;
   updateUI(data,currentCity);
 }
 
@@ -158,73 +131,67 @@ function getLocationWeather(){
   navigator.geolocation.getCurrentPosition(async pos=>{
     let res = await fetch(`https://agro-ai-uhyv.onrender.com/weather?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
     let data = await res.json();
+
+    lastData=data;
     updateUI(data,"Your Location 📍");
   });
 }
 
-// AI LOGIC (frontend simulation)
-function getRisk(temp,rain){
-  if(rain>70) return "🚨 Flood Risk";
-  if(temp>40) return "🔥 Heatwave Risk";
-  return "🟢 Low Risk";
-}
-
-function getIrrigation(temp,rain){
-  if(rain>60) return "❌ No irrigation";
-  if(temp>35) return "💧 Evening irrigation";
-  return "✅ Optional";
-}
-
-function getCropAlert(rain){
-  return rain>60?"🌿 Fungus Risk":"🌿 Healthy";
-}
-
 // UI
-function updateUI(data,city){
+async function updateUI(data,city){
 
   document.getElementById("cityName").innerText=city;
-  document.getElementById("rain").innerText=data.rain;
   document.getElementById("temp").innerText=data.temperature;
-  document.getElementById("adv").innerText=data.advisory;
+  document.getElementById("humidity").innerText=data.humidity;
+  document.getElementById("rain").innerText=data.rain_probability;
 
-  // AI FEATURES
-  document.getElementById("risk").innerText = "Risk: " + getRisk(data.temperature,data.rain);
-  document.getElementById("irrigation").innerText = "Irrigation: " + getIrrigation(data.temperature,data.rain);
-  document.getElementById("cropAlert").innerText = "Crop: " + getCropAlert(data.rain);
+  document.getElementById("risk").innerText="Risk: "+data.risk;
+  document.getElementById("irrigation").innerText="Irrigation: "+data.irrigation;
+  document.getElementById("disease").innerText="Disease: "+data.disease;
+  document.getElementById("pesticide").innerText="Pesticide: "+data.pesticide;
 
-  updateChart(data.temperature,data.rain);
+  updateChart(data.temperature,data.rain_probability);
+
+  // ALERT FETCH
+  let alertRes = await fetch(`https://agro-ai-uhyv.onrender.com/alert?temp=${data.temperature}&rain=${data.rain_probability}&humidity=${data.humidity}`);
+  let alertData = await alertRes.json();
+
+  document.getElementById("alerts").innerText = alertData.alerts.join(", ");
 }
 
-// FEATURES
-function showFeature(type){
-  let r=parseInt(rain.innerText);
-  let t=parseInt(temp.innerText);
+// VOICE (backend)
+function playVoice(){
+  if(!lastData) return;
 
-  if(type=="rain") featureBox.innerText="Rain: "+r+"%";
-  else if(type=="advisory") featureBox.innerText=t>35?"🔥 Water crops":"✅ Normal";
-  else if(type=="alert") featureBox.innerText=getRisk(t,r);
-  else if(type=="irrigation") featureBox.innerText=getIrrigation(t,r);
-  else featureBox.innerText=getCropAlert(r);
+  let text = `Temperature ${lastData.temperature} degree. ${lastData.irrigation}`;
+
+  fetch("https://agro-ai-uhyv.onrender.com/voice",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({text})
+  })
+  .then(res=>res.json())
+  .then(data=>{
+    let audio = new Audio("https://agro-ai-uhyv.onrender.com/"+data.audio_file);
+    audio.play();
+  });
 }
 
-// VOICE
-function speak(){
-  let text=document.getElementById("adv").innerText;
-  let msg=new SpeechSynthesisUtterance(text);
-  msg.lang="hi-IN";
-  speechSynthesis.speak(msg);
-}
-
-// WHATSAPP (demo)
+// WHATSAPP
 function sendWhatsApp(){
-  let text=document.getElementById("adv").innerText;
-  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`);
+  if(!lastData) return;
+
+  let msg = `🌱 AgroAI Alert:
+Temp: ${lastData.temperature}
+Rain: ${lastData.rain_probability}%
+Advice: ${lastData.irrigation}`;
+
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`);
 }
 
 // IMAGE AI
 imageInput.onchange=async e=>{
   let file=e.target.files[0];
-  preview.src=URL.createObjectURL(file);
 
   let fd=new FormData();
   fd.append("file",file);
@@ -232,27 +199,7 @@ imageInput.onchange=async e=>{
   let res = await fetch("https://agro-ai-uhyv.onrender.com/predict",{method:"POST",body:fd});
   let data=await res.json();
 
-  result.innerText=data.result;
-}
-
-// CHATBOT
-function toggleChat(){
-  chatbox.style.display=chatbox.style.display=="none"?"block":"none";
-}
-
-async function sendMsg(){
-  let input=chatInput.value;
-  chatOutput.innerHTML+=`<div>👨 ${input}</div>`;
-
-  let res = await fetch("https://agro-ai-uhyv.onrender.com/chat",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({message:input})
-  });
-
-  let data=await res.json();
-  chatOutput.innerHTML+=`<div>🤖 ${data.reply}</div>`;
-  chatInput.value="";
+  result.innerText=data.result + " | " + (data.solution || "");
 }
 
 // CITY
