@@ -17,7 +17,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-API_KEY = "a1c1801e1d91cf8ff7cb03af540e1f6b"
+API_KEY = "1a79d5efe76760ff32676870d1cce521"
 
 # ================= ML MODEL =================
 X = np.array([
