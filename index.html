@@ -133,11 +133,16 @@ body {background:#0f172a;color:white;font-family:Arial;text-align:center;}
 
 <div class="chatbot" onclick="toggleChat()">💬</div>
 
-<script>
+ <script>
 
 let currentCity="Bhopal";
 let chart,temps=[],rains=[],labels=[];
 let lastData=null;
+
+// ✅ FIX 1: elements safely grab karo
+const imageInput = document.getElementById("imageInput");
+const preview = document.getElementById("preview");
+const result = document.getElementById("result");
 
 // GRAPH
 function updateChart(temp,rain){
@@ -161,22 +166,8 @@ function updateChart(temp,rain){
 
 // WEATHER
 async function getWeather(){
-  let res = await fetch(`https://agro-ai-uhyv.onrender.com/weather?city=${currentCity}`);
-  let data = await res.json();
-
-  if(data.error){
-    alert(data.error);
-    return;
-  }
-
-  lastData=data;
-  updateUI(data,currentCity);
-}
-
-// LOCATION
-function getLocationWeather(){
-  navigator.geolocation.getCurrentPosition(async pos=>{
-    let res = await fetch(`https://agro-ai-uhyv.onrender.com/weather?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
+  try {
+    let res = await fetch(`https://agro-ai-uhyv.onrender.com/weather?city=${currentCity}`);
     let data = await res.json();
 
     if(data.error){
@@ -185,15 +176,37 @@ function getLocationWeather(){
     }
 
     lastData=data;
-    updateUI(data,"Your Location 📍");
+    updateUI(data,currentCity);
+  } catch(e){
+    alert("Server down / slow 😓");
+  }
+}
+
+// LOCATION
+function getLocationWeather(){
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    try {
+      let res = await fetch(`https://agro-ai-uhyv.onrender.com/weather?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
+      let data = await res.json();
+
+      if(data.error){
+        alert(data.error);
+        return;
+      }
+
+      lastData=data;
+      updateUI(data,"Your Location 📍");
+    } catch(e){
+      alert("Location API error 😓");
+    }
   });
 }
 
 // UI UPDATE
 function updateUI(data,city){
 
-  // 🔥 FIX: rain fallback + clamp
-  let rain = Math.max(0, Math.min(100, data.rain ?? data.rain_probability ?? 0));
+  // ✅ FIX 2: rain field correct (backend sends rain_probability)
+  let rain = Math.max(0, Math.min(100, data.rain_probability ?? 0));
   let temp = data.temperature ?? 0;
 
   document.getElementById("cityName").innerText=city;
@@ -208,11 +221,9 @@ function updateUI(data,city){
   document.getElementById("decision").innerText =
     "Decision: " + getDecision(temp, rain);
 
-  // 🔥 FIX: advisory safe
   document.getElementById("adv").innerText =
     (data.advisory || "Weather data loaded") + " | " + (data.advisory_hi || "");
 
-  // 🔥 FIX: Hindi fallback
   document.getElementById("risk").innerText = "Risk: " + (data.risk || "N/A");
   document.getElementById("risk_hi").innerText = "जोखिम: " + (data.risk_hi || data.risk || "N/A");
 
@@ -223,6 +234,39 @@ function updateUI(data,city){
     rain > 60 ? "🌿 Fungus Risk" : "🌿 Healthy";
 
   updateChart(temp, rain);
+}
+
+// CROPS
+function getCrop(temp,rain,soil){
+  if(soil=="loamy"){
+    if(rain>60) return "🌾 Rice";
+    if(temp>30) return "🌽 Maize";
+    return "🌿 Wheat";
+  }
+  if(soil=="clay"){
+    if(rain>70) return "🌾 Rice";
+    return "🌿 Sugarcane";
+  }
+  if(soil=="sandy"){
+    if(temp>35) return "🌵 Millet";
+    return "🌿 Groundnut";
+  }
+  return "🌿 Wheat";
+}
+
+function getProfit(crop){
+  if(crop.includes("Rice")) return "₹40K / acre";
+  if(crop.includes("Wheat")) return "₹30K / acre";
+  if(crop.includes("Maize")) return "₹35K / acre";
+  if(crop.includes("Sugarcane")) return "₹50K / acre";
+  if(crop.includes("Millet")) return "₹25K / acre";
+  return "₹20K / acre";
+}
+
+function getDecision(temp,rain){
+  if(rain>70) return "🚫 Avoid farming today";
+  if(temp>40) return "🌅 Work in evening only";
+  return "✅ Safe for farming";
 }
 
 // FEATURE
@@ -238,51 +282,6 @@ function showFeature(type){
   else box.innerText=r>60?"🌿 Fungus Risk":"🌿 Healthy";
 }
 
-// VOICE
-function speak(){
-  let msg=new SpeechSynthesisUtterance(document.getElementById("adv").innerText);
-  msg.lang="hi-IN";
-  speechSynthesis.speak(msg);
-}
-
-// WHATSAPP
-function sendWhatsApp(){
-  let text=document.getElementById("adv").innerText;
-  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`);
-}
-
-// SMS
-function sendSMS(){
-  alert("📩 SMS sent (Demo)");
-}
-
-// FORECAST
-async function loadForecast(){
-  let res = await fetch("https://agro-ai-uhyv.onrender.com/forecast");
-  let data = await res.json();
-
-  let labels=[], temps=[], rains=[];
-
-  data.forecast.forEach(d=>{
-    labels.push(d.day);
-    temps.push(d.temp);
-    rains.push(d.rain);
-  });
-
-  if(chart) chart.destroy();
-
-  chart=new Chart(document.getElementById("weatherChart"),{
-    type:"line",
-    data:{
-      labels:labels,
-      datasets:[
-        {label:"Temp Forecast",data:temps},
-        {label:"Rain Forecast",data:rains}
-      ]
-    }
-  });
-}
-
 // IMAGE
 imageInput.onchange=async e=>{
   let file=e.target.files[0];
@@ -291,35 +290,50 @@ imageInput.onchange=async e=>{
   let fd=new FormData();
   fd.append("file",file);
 
-  let res = await fetch("https://agro-ai-uhyv.onrender.com/predict",{method:"POST",body:fd});
-  let data=await res.json();
-
-  result.innerText=data.result + " " + (data.result_hi ?? "");
+  try{
+    let res = await fetch("https://agro-ai-uhyv.onrender.com/predict",{method:"POST",body:fd});
+    let data=await res.json();
+    result.innerText=data.result + " " + (data.result_hi ?? "");
+  }catch{
+    result.innerText="Server error 😓";
+  }
 }
 
-// CHATBOT
-function toggleChat(){
-  chatbox.style.display=chatbox.style.display=="none"?"block":"none";
-}
-
+// ✅ FIX 3: CHATBOT FUNCTION (missing tha)
 async function sendMsg(){
-  let input=chatInput.value;
+  let input=document.getElementById("chatInput").value;
+
+  if(!input) return;
+
+  let chatOutput=document.getElementById("chatOutput");
   chatOutput.innerHTML+=`<div>👨 ${input}</div>`;
 
-  let res = await fetch("https://agro-ai-uhyv.onrender.com/chat",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({message:input})
-  });
+  try{
+    let res = await fetch("https://agro-ai-uhyv.onrender.com/chat",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({message:input})
+    });
 
-  let data=await res.json();
-  chatOutput.innerHTML+=`<div>🤖 ${data.reply} / ${data.reply_hi}</div>`;
-  chatInput.value="";
+    let data=await res.json();
+
+    chatOutput.innerHTML+=`<div>🤖 ${data.reply} / ${data.reply_hi}</div>`;
+  }catch{
+    chatOutput.innerHTML+=`<div>🤖 Server error 😓</div>`;
+  }
+
+  document.getElementById("chatInput").value="";
+}
+
+// CHAT TOGGLE
+function toggleChat(){
+  let box=document.getElementById("chatbox");
+  box.style.display = box.style.display=="none" ? "block" : "none";
 }
 
 // CITY
 function changeCity(){
-  currentCity=cityInput.value;
+  currentCity=document.getElementById("cityInput").value;
   getWeather();
 }
 
