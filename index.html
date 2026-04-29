@@ -133,22 +133,28 @@ body {background:#0f172a;color:white;font-family:Arial;text-align:center;}
 
 <div class="chatbot" onclick="toggleChat()">💬</div>
 
- <script>
+<script>
 
 let currentCity="Bhopal";
 let chart,temps=[],rains=[],labels=[];
 let lastData=null;
 
-// ✅ FIX 1: elements safely grab karo
 const imageInput = document.getElementById("imageInput");
 const preview = document.getElementById("preview");
 const result = document.getElementById("result");
 
-// GRAPH
+// GRAPH (✅ memory safe)
 function updateChart(temp,rain){
   labels.push(new Date().toLocaleTimeString());
   temps.push(temp);
   rains.push(rain);
+
+  // ✅ limit data (important fix)
+  if(labels.length > 10){
+    labels.shift();
+    temps.shift();
+    rains.shift();
+  }
 
   if(chart) chart.destroy();
 
@@ -202,11 +208,10 @@ function getLocationWeather(){
   });
 }
 
-// UI UPDATE
+// UI UPDATE (✅ strong rain fix)
 function updateUI(data,city){
 
-  // ✅ FIX 2: rain field correct (backend sends rain_probability)
-  let rain = Math.max(0, Math.min(100, data.rain_probability ?? 0));
+  let rain = Math.max(0, Math.min(100, data.rain ?? data.rain_probability ?? 0));
   let temp = data.temperature ?? 0;
 
   document.getElementById("cityName").innerText=city;
@@ -285,6 +290,8 @@ function showFeature(type){
 // IMAGE
 imageInput.onchange=async e=>{
   let file=e.target.files[0];
+  if(!file) return;
+
   preview.src=URL.createObjectURL(file);
 
   let fd=new FormData();
@@ -299,13 +306,13 @@ imageInput.onchange=async e=>{
   }
 }
 
-// ✅ FIX 3: CHATBOT FUNCTION (missing tha)
+// CHATBOT
 async function sendMsg(){
-  let input=document.getElementById("chatInput").value;
-
+  let input=document.getElementById("chatInput").value.trim();
   if(!input) return;
 
   let chatOutput=document.getElementById("chatOutput");
+
   chatOutput.innerHTML+=`<div>👨 ${input}</div>`;
 
   try{
@@ -322,6 +329,9 @@ async function sendMsg(){
     chatOutput.innerHTML+=`<div>🤖 Server error 😓</div>`;
   }
 
+  // ✅ auto scroll
+  chatOutput.scrollTop = chatOutput.scrollHeight;
+
   document.getElementById("chatInput").value="";
 }
 
@@ -331,9 +341,14 @@ function toggleChat(){
   box.style.display = box.style.display=="none" ? "block" : "none";
 }
 
-// CITY
+// CITY (✅ validation added)
 function changeCity(){
-  currentCity=document.getElementById("cityInput").value;
+  let val=document.getElementById("cityInput").value.trim();
+  if(!val){
+    alert("Enter city name");
+    return;
+  }
+  currentCity=val;
   getWeather();
 }
 
@@ -341,6 +356,22 @@ function changeCity(){
 document.getElementById("soilType").onchange = () => {
   if(lastData) updateUI(lastData,currentCity);
 };
+
+// ✅ dummy functions (important)
+async function loadForecast(){
+  let res = await fetch("https://agro-ai-uhyv.onrender.com/forecast");
+  let data = await res.json();
+
+  alert(JSON.stringify(data.forecast, null, 2));
+}
+
+function sendSMS(){
+  alert("SMS feature coming soon 📩");
+}
+
+function sendWhatsApp(){
+  alert("WhatsApp alert sent (demo) 📲");
+}
 
 getWeather();
 
