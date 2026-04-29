@@ -181,26 +181,33 @@ async def chat(data: dict = Body(...)):
     except Exception:
         return {"reply": "⚠ Error", "reply_hi": "⚠ त्रुटि"}
 
-# ================= ALERT =================
+# ================= ALERT (FIXED) =================
 @app.get("/alert")
-async def get_alert(temp: float = 30, rain: int = 20):
+async def get_alert(temp: float = 0, rain: float = 0):
 
-    if rain > 75:
-        return {
-            "alert": "🚨 Heavy Rain",
-            "alerts": ["🚨 Heavy Rain"],
-            "alerts_hi": ["🚨 भारी बारिश"]
-        }
+    # 🔥 REAL LOGIC (no more always SAFE)
+    if rain > 80:
+        alert = "🚨 Flood Risk"
+        alert_hi = "🚨 बाढ़ का खतरा"
 
-    elif temp > 40:
-        return {
-            "alert": "🔥 Heatwave",
-            "alerts": ["🔥 Heatwave"],
-            "alerts_hi": ["🔥 लू"]
-        }
+    elif rain > 60:
+        alert = "🌧 Heavy Rain Risk"
+        alert_hi = "🌧 भारी बारिश का खतरा"
+
+    elif temp > 42:
+        alert = "🔥 Heatwave Risk"
+        alert_hi = "🔥 लू का खतरा"
+
+    elif temp < 10:
+        alert = "❄ Cold Wave Risk"
+        alert_hi = "❄ ठंड का खतरा"
+
+    else:
+        alert = "✅ Weather is Safe"
+        alert_hi = "✅ मौसम सामान्य"
 
     return {
-        "alert": "✅ Safe",
-        "alerts": ["✅ Safe"],
-        "alerts_hi": ["✅ सुरक्षित"]
+        "alert": alert,
+        "alerts": [alert],
+        "alerts_hi": [alert_hi]
     }
