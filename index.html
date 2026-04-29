@@ -137,6 +137,7 @@ body {background:#0f172a;color:white;font-family:Arial;text-align:center;}
 
 let currentCity="Bhopal";
 let chart,temps=[],rains=[],labels=[];
+let lastData=null;
 
 // GRAPH
 function updateChart(temp,rain){
@@ -162,6 +163,13 @@ function updateChart(temp,rain){
 async function getWeather(){
   let res = await fetch(`https://agro-ai-uhyv.onrender.com/weather?city=${currentCity}`);
   let data = await res.json();
+
+  if(data.error){
+    alert(data.error);
+    return;
+  }
+
+  lastData=data;
   updateUI(data,currentCity);
 }
 
@@ -170,6 +178,13 @@ function getLocationWeather(){
   navigator.geolocation.getCurrentPosition(async pos=>{
     let res = await fetch(`https://agro-ai-uhyv.onrender.com/weather?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
     let data = await res.json();
+
+    if(data.error){
+      alert(data.error);
+      return;
+    }
+
+    lastData=data;
     updateUI(data,"Your Location 📍");
   });
 }
@@ -177,79 +192,50 @@ function getLocationWeather(){
 // UI UPDATE
 function updateUI(data,city){
 
-  document.getElementById("cityName").innerText=city;
-  document.getElementById("rain").innerText=data.rain;
-  document.getElementById("temp").innerText=data.temperature;
+  // 🔥 FIX: rain fallback + clamp
+  let rain = Math.max(0, Math.min(100, data.rain ?? data.rain_probability ?? 0));
+  let temp = data.temperature ?? 0;
 
-  // 🌾 SMART FARMING
+  document.getElementById("cityName").innerText=city;
+  document.getElementById("rain").innerText=rain;
+  document.getElementById("temp").innerText=temp;
+
   let soil = document.getElementById("soilType").value;
 
-  let crop = getCrop(data.temperature, data.rain, soil);
+  let crop = getCrop(temp, rain, soil);
   document.getElementById("cropReco").innerText = "Crop: " + crop;
   document.getElementById("profit").innerText = "Profit: " + getProfit(crop);
   document.getElementById("decision").innerText =
-    "Decision: " + getDecision(data.temperature, data.rain);
+    "Decision: " + getDecision(temp, rain);
 
+  // 🔥 FIX: advisory safe
   document.getElementById("adv").innerText =
-    data.advisory + " | " + data.advisory_hi;
+    (data.advisory || "Weather data loaded") + " | " + (data.advisory_hi || "");
 
-  document.getElementById("risk").innerText = "Risk: " + data.risk;
-  document.getElementById("risk_hi").innerText = "जोखिम: " + data.risk_hi;
+  // 🔥 FIX: Hindi fallback
+  document.getElementById("risk").innerText = "Risk: " + (data.risk || "N/A");
+  document.getElementById("risk_hi").innerText = "जोखिम: " + (data.risk_hi || data.risk || "N/A");
 
-  document.getElementById("irrigation").innerText = "Irrigation: " + data.irrigation;
-  document.getElementById("irrigation_hi").innerText = "सिंचाई: " + data.irrigation_hi;
+  document.getElementById("irrigation").innerText = "Irrigation: " + (data.irrigation || "N/A");
+  document.getElementById("irrigation_hi").innerText = "सिंचाई: " + (data.irrigation_hi || data.irrigation || "N/A");
 
   document.getElementById("cropAlert").innerText =
-    data.rain > 60 ? "🌿 Fungus Risk" : "🌿 Healthy";
+    rain > 60 ? "🌿 Fungus Risk" : "🌿 Healthy";
 
-  updateChart(data.temperature,data.rain);
-}
-
-// CROP
-function getCrop(temp,rain,soil){
-  if(soil=="loamy"){
-    if(rain>60) return "🌾 Rice";
-    if(temp>30) return "🌽 Maize";
-    return "🌿 Wheat";
-  }
-  if(soil=="clay"){
-    if(rain>70) return "🌾 Rice";
-    return "🌿 Sugarcane";
-  }
-  if(soil=="sandy"){
-    if(temp>35) return "🌵 Millet";
-    return "🌿 Groundnut";
-  }
-  return "🌿 Wheat";
-}
-
-// PROFIT
-function getProfit(crop){
-  if(crop.includes("Rice")) return "₹40K / acre";
-  if(crop.includes("Wheat")) return "₹30K / acre";
-  if(crop.includes("Maize")) return "₹35K / acre";
-  if(crop.includes("Sugarcane")) return "₹50K / acre";
-  if(crop.includes("Millet")) return "₹25K / acre";
-  return "₹20K / acre";
-}
-
-// DECISION
-function getDecision(temp,rain){
-  if(rain>70) return "🚫 Avoid farming today";
-  if(temp>40) return "🌅 Work in evening only";
-  return "✅ Safe for farming";
+  updateChart(temp, rain);
 }
 
 // FEATURE
 function showFeature(type){
-  let r=parseInt(rain.innerText);
-  let t=parseInt(temp.innerText);
+  let r=parseInt(document.getElementById("rain").innerText);
+  let t=parseInt(document.getElementById("temp").innerText);
+  let box=document.getElementById("featureBox");
 
-  if(type=="rain") featureBox.innerText="Rain: "+r+"%";
-  else if(type=="advisory") featureBox.innerText=t>35?"🔥 Water crops":"✅ Normal";
-  else if(type=="alert") featureBox.innerText=r>70?"🚨 Flood Risk":"🟢 Low Risk";
-  else if(type=="irrigation") featureBox.innerText=r>60?"❌ No irrigation":"💧 Irrigation needed";
-  else featureBox.innerText=r>60?"🌿 Fungus Risk":"🌿 Healthy";
+  if(type=="rain") box.innerText="Rain: "+r+"%";
+  else if(type=="advisory") box.innerText=t>35?"🔥 Water crops":"✅ Normal";
+  else if(type=="alert") box.innerText=r>70?"🚨 Flood Risk":"🟢 Low Risk";
+  else if(type=="irrigation") box.innerText=r>60?"❌ No irrigation":"💧 Irrigation needed";
+  else box.innerText=r>60?"🌿 Fungus Risk":"🌿 Healthy";
 }
 
 // VOICE
@@ -308,7 +294,7 @@ imageInput.onchange=async e=>{
   let res = await fetch("https://agro-ai-uhyv.onrender.com/predict",{method:"POST",body:fd});
   let data=await res.json();
 
-  result.innerText=data.result;
+  result.innerText=data.result + " " + (data.result_hi ?? "");
 }
 
 // CHATBOT
@@ -337,9 +323,9 @@ function changeCity(){
   getWeather();
 }
 
-// 🔥 AUTO UPDATE ON SOIL CHANGE
+// AUTO UPDATE
 document.getElementById("soilType").onchange = () => {
-  getWeather();
+  if(lastData) updateUI(lastData,currentCity);
 };
 
 getWeather();
