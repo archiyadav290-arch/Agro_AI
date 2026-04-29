@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import requests
 import random
 
-# ✅ ML IMPORT
+# ML
 from sklearn.linear_model import LinearRegression
 import numpy as np
 
@@ -17,9 +17,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-API_KEY = "1a79d5efe76760ff32676870d1cce521"
+API_KEY = "YOUR_API_KEY"
 
-# ================= ML MODEL TRAIN =================
+# ================= ML MODEL =================
 X = np.array([
     [28, 50],
     [30, 60],
@@ -38,11 +38,12 @@ model.fit(X, y)
 def home():
     return {"message": "AgroAI Backend Running 🚀"}
 
-# ================= WEATHER + ML =================
+# ================= WEATHER =================
 @app.get("/weather")
 def get_weather(lat: float = None, lon: float = None, city: str = None):
 
     try:
+        # API CALL
         if lat and lon:
             url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={API_KEY}&units=metric"
         else:
@@ -55,45 +56,48 @@ def get_weather(lat: float = None, lon: float = None, city: str = None):
         if "main" not in data:
             return {"error": data.get("message", "Invalid City")}
 
-        temp = data["main"]["temp"]
-        humidity = data["main"]["humidity"]
+        temp = data["main"].get("temp", 0)
+        humidity = data["main"].get("humidity", 0)
 
-        # 🌧 ML Rain Prediction
+        # 🌧 ML Prediction (SAFE)
         rain = int(model.predict([[temp, humidity]])[0])
 
-        # ================= AI SCORE =================
+        # 🔥 FIX: clamp values
+        rain = max(0, min(rain, 100))
+
+        # ================= SCORE =================
         score = (temp * 0.3) + (humidity * 0.4) + (rain * 0.3)
 
         # ================= ADVISORY =================
         if score > 75:
             advisory = "Extreme weather risk. Avoid irrigation and protect crops."
-
             advisory_hi = "⚠️ अत्यधिक मौसम खतरा है। सिंचाई रोकें और फसल को सुरक्षित रखें।"
-
             risk = "🚨 High Risk"
+            risk_hi = "🚨 उच्च जोखिम"
             irrigation = "❌ Stop irrigation"
+            irrigation_hi = "❌ सिंचाई रोकें"
 
             soil = "Avoid wet soil"
             crop = "Avoid sowing new crops"
 
         elif score > 55:
             advisory = "Moderate risk. Monitor crops and irrigate carefully."
-
             advisory_hi = "⚠️ मध्यम जोखिम है। फसल की निगरानी करें और सीमित सिंचाई करें।"
-
             risk = "⚠ Moderate Risk"
+            risk_hi = "⚠ मध्यम जोखिम"
             irrigation = "⚠ Limited irrigation"
+            irrigation_hi = "⚠ सीमित सिंचाई करें"
 
             soil = "Maintain moisture"
             crop = "Rice / Maize suitable"
 
         else:
             advisory = "Weather is safe. Normal farming operations can continue."
-
             advisory_hi = "✅ मौसम सामान्य है। खेती के सभी कार्य सुरक्षित हैं।"
-
             risk = "✅ Low Risk"
+            risk_hi = "✅ कम जोखिम"
             irrigation = "🌿 Normal irrigation"
+            irrigation_hi = "🌿 सामान्य सिंचाई करें"
 
             soil = "Good soil condition"
             crop = "Wheat / Pulses recommended"
@@ -101,13 +105,16 @@ def get_weather(lat: float = None, lon: float = None, city: str = None):
         return {
             "temperature": temp,
             "humidity": humidity,
-            "rain": rain,
+            "rain_probability": rain,   # ✅ FIXED KEY
 
             "advisory": advisory,
             "advisory_hi": advisory_hi,
 
             "risk": risk,
+            "risk_hi": risk_hi,
+
             "irrigation": irrigation,
+            "irrigation_hi": irrigation_hi,
 
             "soil": soil,
             "crop": crop
@@ -128,6 +135,7 @@ def forecast():
         humidity = random.randint(50, 90)
 
         rain = int(model.predict([[temp, humidity]])[0])
+        rain = max(0, min(rain, 100))  # FIX
 
         forecast_data.append({
             "day": f"Day {i+1}",
@@ -139,63 +147,41 @@ def forecast():
 
     return {"forecast": forecast_data}
 
-# ================= IMAGE AI =================
+# ================= IMAGE =================
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
     content = await file.read()
     size = len(content)
 
     if size % 3 == 0:
-        result = "🌿 Fungal infection detected"
-        result_hi = "🌿 फंगल संक्रमण पाया गया"
+        return {"result": "🌿 Fungal infection detected", "result_hi": "🌿 फंगल संक्रमण पाया गया"}
 
     elif size % 5 == 0:
-        result = "🔥 Heat stress detected"
-        result_hi = "🔥 गर्मी का असर"
+        return {"result": "🔥 Heat stress detected", "result_hi": "🔥 गर्मी का असर"}
 
-    else:
-        result = "✅ Healthy crop"
-        result_hi = "✅ फसल स्वस्थ है"
+    return {"result": "✅ Healthy crop", "result_hi": "✅ फसल स्वस्थ है"}
 
-    return {"result": result, "result_hi": result_hi}
-
-# ================= CHATBOT =================
+# ================= CHAT =================
 @app.post("/chat")
 async def chat(data: dict):
     msg = data.get("message", "").lower()
 
     if "rain" in msg:
-        return {"reply": "🌧 Rain expected. Avoid irrigation",
-                "reply_hi": "🌧 बारिश की संभावना है, सिंचाई न करें"}
+        return {"reply": "🌧 Rain expected", "reply_hi": "🌧 बारिश की संभावना"}
 
     elif "heat" in msg:
-        return {"reply": "🔥 High heat. Water crops",
-                "reply_hi": "🔥 गर्मी अधिक है, सिंचाई करें"}
+        return {"reply": "🔥 High heat", "reply_hi": "🔥 गर्मी अधिक"}
 
-    elif "disease" in msg:
-        return {"reply": "🌿 Humidity may cause disease",
-                "reply_hi": "🌿 अधिक नमी से रोग हो सकता है"}
-
-    elif "irrigation" in msg:
-        return {"reply": "💧 Best time: morning/evening",
-                "reply_hi": "💧 सिंचाई सुबह या शाम करें"}
-
-    else:
-        return {"reply": "🤖 Monitor weather daily",
-                "reply_hi": "🤖 रोज मौसम की जानकारी देखें"}
+    return {"reply": "🤖 Monitor weather", "reply_hi": "🤖 मौसम देखें"}
 
 # ================= ALERT =================
 @app.get("/alert")
 def get_alert(temp: float = 30, rain: int = 20):
 
     if rain > 75:
-        return {"alert": "🚨 Heavy Rain Alert!",
-                "alert_hi": "🚨 भारी बारिश की चेतावनी"}
+        return {"alerts": ["🚨 Heavy Rain Alert"], "alerts_hi": ["🚨 भारी बारिश"]}
 
     elif temp > 40:
-        return {"alert": "🔥 Heatwave Alert!",
-                "alert_hi": "🔥 लू की चेतावनी"}
+        return {"alerts": ["🔥 Heatwave Alert"], "alerts_hi": ["🔥 लू का खतरा"]}
 
-    else:
-        return {"alert": "✅ No major risk",
-                "alert_hi": "✅ कोई बड़ा खतरा नहीं"}
+    return {"alerts": ["✅ No major risk"], "alerts_hi": ["✅ कोई खतरा नहीं"]}
