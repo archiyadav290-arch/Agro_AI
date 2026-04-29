@@ -1,6 +1,6 @@
 fastapi
 uvicorn
-requests
-scikit-learn
+httpx
 numpy
+scikit-learn
 python-multipart
