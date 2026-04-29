@@ -39,7 +39,8 @@ async def home():
 @app.get("/weather")
 async def get_weather(lat: float = None, lon: float = None, city: str = None):
     try:
-        if lat and lon:
+        # ✅ FIX: proper lat/lon check
+        if lat is not None and lon is not None:
             url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={API_KEY}&units=metric"
         else:
             city = city or "Bhopal"
@@ -55,12 +56,10 @@ async def get_weather(lat: float = None, lon: float = None, city: str = None):
         temp = data["main"].get("temp", 0)
         humidity = data["main"].get("humidity", 0)
 
-        # ================= 🌧 FIXED RAIN LOGIC =================
+        # ================= 🌧 RAIN LOGIC =================
         base_rain = model.predict([[temp, humidity]])[0]
 
-        # 🔥 boost using humidity (important fix)
         rain = base_rain + (humidity * 0.4) - (temp * 0.2)
-
         rain = int(max(0, min(rain, 100)))
 
         # ================= SCORE =================
@@ -91,13 +90,19 @@ async def get_weather(lat: float = None, lon: float = None, city: str = None):
             irrigation = "🌿 Normal irrigation"
             irrigation_hi = "🌿 सामान्य सिंचाई"
 
+        # ✅ FINAL RESPONSE (FULL COMPATIBILITY)
         return {
             "temperature": temp,
             "humidity": humidity,
 
-            "rain_probability": rain,
+            # 🔥 important
             "rain": rain,
+            "rain_probability": rain,
 
+            # 🔥 old frontend fix
+            "hindi": advisory_hi,
+
+            # new fields
             "advisory": advisory,
             "advisory_hi": advisory_hi,
 
@@ -121,7 +126,6 @@ async def forecast():
         temp = base_temp + random.randint(-2, 3)
         humidity = random.randint(50, 90)
 
-        # same improved rain logic
         rain = int(max(0, min(
             model.predict([[temp, humidity]])[0] + (humidity * 0.4) - (temp * 0.2),
             100
@@ -160,7 +164,7 @@ async def chat(data: dict = Body(...)):
             return {"reply": "🤖 Please type something", "reply_hi": "🤖 कुछ लिखें"}
 
         if "rain" in msg:
-            return {"reply": "🌧 Rain chances depend on humidity",
+            return {"reply": "🌧 Rain depends on humidity",
                     "reply_hi": "🌧 बारिश नमी पर निर्भर है"}
 
         elif "heat" in msg:
@@ -182,9 +186,21 @@ async def chat(data: dict = Body(...)):
 async def get_alert(temp: float = 30, rain: int = 20):
 
     if rain > 75:
-        return {"alerts": ["🚨 Heavy Rain"], "alerts_hi": ["🚨 भारी बारिश"]}
+        return {
+            "alert": "🚨 Heavy Rain",
+            "alerts": ["🚨 Heavy Rain"],
+            "alerts_hi": ["🚨 भारी बारिश"]
+        }
 
     elif temp > 40:
-        return {"alerts": ["🔥 Heatwave"], "alerts_hi": ["🔥 लू"]}
+        return {
+            "alert": "🔥 Heatwave",
+            "alerts": ["🔥 Heatwave"],
+            "alerts_hi": ["🔥 लू"]
+        }
 
-    return {"alerts": ["✅ Safe"], "alerts_hi": ["✅ सुरक्षित"]}
+    return {
+        "alert": "✅ Safe",
+        "alerts": ["✅ Safe"],
+        "alerts_hi": ["✅ सुरक्षित"]
+    }
