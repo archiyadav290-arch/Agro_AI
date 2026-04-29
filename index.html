@@ -143,13 +143,17 @@ const imageInput = document.getElementById("imageInput");
 const preview = document.getElementById("preview");
 const result = document.getElementById("result");
 
-// GRAPH (✅ memory safe)
+// 🔥 SAFE FUNCTION
+function safe(val){
+  return (val === undefined || val === null || val === "") ? "N/A" : val;
+}
+
+// GRAPH
 function updateChart(temp,rain){
   labels.push(new Date().toLocaleTimeString());
   temps.push(temp);
   rains.push(rain);
 
-  // ✅ limit data (important fix)
   if(labels.length > 10){
     labels.shift();
     temps.shift();
@@ -170,10 +174,13 @@ function updateChart(temp,rain){
   });
 }
 
-// WEATHER
+// WEATHER (CACHE FIX)
 async function getWeather(){
   try {
-    let res = await fetch(`https://agro-ai-uhyv.onrender.com/weather?city=${currentCity}`);
+    let res = await fetch(
+      `https://agro-ai-uhyv.onrender.com/weather?city=${currentCity}&t=${Date.now()}`
+    );
+
     let data = await res.json();
 
     if(data.error){
@@ -183,16 +190,20 @@ async function getWeather(){
 
     lastData=data;
     updateUI(data,currentCity);
+
   } catch(e){
     alert("Server down / slow 😓");
   }
 }
 
-// LOCATION
+// LOCATION (CACHE FIX)
 function getLocationWeather(){
   navigator.geolocation.getCurrentPosition(async pos=>{
     try {
-      let res = await fetch(`https://agro-ai-uhyv.onrender.com/weather?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
+      let res = await fetch(
+        `https://agro-ai-uhyv.onrender.com/weather?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&t=${Date.now()}`
+      );
+
       let data = await res.json();
 
       if(data.error){
@@ -202,14 +213,17 @@ function getLocationWeather(){
 
       lastData=data;
       updateUI(data,"Your Location 📍");
+
     } catch(e){
       alert("Location API error 😓");
     }
   });
 }
 
-// UI UPDATE (✅ strong rain fix)
+// 🔥 MAIN FIXED UI FUNCTION
 function updateUI(data,city){
+
+  console.log("DATA:", data);
 
   let rain = Math.max(0, Math.min(100, data.rain ?? data.rain_probability ?? 0));
   let temp = data.temperature ?? 0;
@@ -223,17 +237,39 @@ function updateUI(data,city){
   let crop = getCrop(temp, rain, soil);
   document.getElementById("cropReco").innerText = "Crop: " + crop;
   document.getElementById("profit").innerText = "Profit: " + getProfit(crop);
-  document.getElementById("decision").innerText =
-    "Decision: " + getDecision(temp, rain);
+  document.getElementById("decision").innerText = "Decision: " + getDecision(temp, rain);
 
   document.getElementById("adv").innerText =
-    (data.advisory || "Weather data loaded") + " | " + (data.advisory_hi || "");
+    safe(data.advisory) + " | " + safe(data.advisory_hi);
 
-  document.getElementById("risk").innerText = "Risk: " + (data.risk || "N/A");
-  document.getElementById("risk_hi").innerText = "जोखिम: " + (data.risk_hi || data.risk || "N/A");
+  // 🔥 AI ENGINE (FIXED - NO BACKEND DEPENDENCY)
+  let riskScore = 0;
 
-  document.getElementById("irrigation").innerText = "Irrigation: " + (data.irrigation || "N/A");
-  document.getElementById("irrigation_hi").innerText = "सिंचाई: " + (data.irrigation_hi || data.irrigation || "N/A");
+  if(temp > 40) riskScore += 40;
+  if(rain > 70) riskScore += 50;
+  if(rain < 20) riskScore += 20;
+
+  let riskText =
+    riskScore > 70 ? "🔴 High Risk" :
+    riskScore > 40 ? "🟠 Medium Risk" :
+    "🟢 Low Risk";
+
+  let riskHi =
+    riskScore > 70 ? "🔴 ज्यादा जोखिम" :
+    riskScore > 40 ? "🟠 मध्यम जोखिम" :
+    "🟢 कम जोखिम";
+
+  let irrigationText =
+    rain > 60 ? "🌿 No irrigation needed" : "💧 Irrigation needed";
+
+  let irrigationHi =
+    rain > 60 ? "🌿 सिंचाई जरूरी नहीं" : "💧 सिंचाई जरूरी";
+
+  document.getElementById("risk").innerText = "Risk: " + riskText;
+  document.getElementById("risk_hi").innerText = riskHi;
+
+  document.getElementById("irrigation").innerText = "Irrigation: " + irrigationText;
+  document.getElementById("irrigation_hi").innerText = irrigationHi;
 
   document.getElementById("cropAlert").innerText =
     rain > 60 ? "🌿 Fungus Risk" : "🌿 Healthy";
@@ -329,9 +365,7 @@ async function sendMsg(){
     chatOutput.innerHTML+=`<div>🤖 Server error 😓</div>`;
   }
 
-  // ✅ auto scroll
   chatOutput.scrollTop = chatOutput.scrollHeight;
-
   document.getElementById("chatInput").value="";
 }
 
@@ -341,7 +375,7 @@ function toggleChat(){
   box.style.display = box.style.display=="none" ? "block" : "none";
 }
 
-// CITY (✅ validation added)
+// CITY
 function changeCity(){
   let val=document.getElementById("cityInput").value.trim();
   if(!val){
@@ -352,16 +386,15 @@ function changeCity(){
   getWeather();
 }
 
-// AUTO UPDATE
+// SOIL CHANGE
 document.getElementById("soilType").onchange = () => {
   if(lastData) updateUI(lastData,currentCity);
 };
 
-// ✅ dummy functions (important)
+// FORECAST
 async function loadForecast(){
   let res = await fetch("https://agro-ai-uhyv.onrender.com/forecast");
   let data = await res.json();
-
   alert(JSON.stringify(data.forecast, null, 2));
 }
 
