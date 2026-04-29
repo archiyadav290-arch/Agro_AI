@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Body
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 import random
@@ -55,11 +55,15 @@ async def get_weather(lat: float = None, lon: float = None, city: str = None):
         temp = data["main"].get("temp", 0)
         humidity = data["main"].get("humidity", 0)
 
-        # 🌧 ML prediction
-        rain = int(model.predict([[temp, humidity]])[0])
-        rain = max(0, min(rain, 100))
+        # ================= 🌧 FIXED RAIN LOGIC =================
+        base_rain = model.predict([[temp, humidity]])[0]
 
-        # 📊 score
+        # 🔥 boost using humidity (important fix)
+        rain = base_rain + (humidity * 0.4) - (temp * 0.2)
+
+        rain = int(max(0, min(rain, 100)))
+
+        # ================= SCORE =================
         score = (temp * 0.3) + (humidity * 0.4) + (rain * 0.3)
 
         # ================= ADVISORY =================
@@ -87,13 +91,12 @@ async def get_weather(lat: float = None, lon: float = None, city: str = None):
             irrigation = "🌿 Normal irrigation"
             irrigation_hi = "🌿 सामान्य सिंचाई"
 
-        # ✅ IMPORTANT FIX (rain issue solved)
         return {
             "temperature": temp,
             "humidity": humidity,
 
             "rain_probability": rain,
-            "rain": rain,   # 👈 FIX: extra key for frontend
+            "rain": rain,
 
             "advisory": advisory,
             "advisory_hi": advisory_hi,
@@ -118,8 +121,11 @@ async def forecast():
         temp = base_temp + random.randint(-2, 3)
         humidity = random.randint(50, 90)
 
-        rain = int(model.predict([[temp, humidity]])[0])
-        rain = max(0, min(rain, 100))
+        # same improved rain logic
+        rain = int(max(0, min(
+            model.predict([[temp, humidity]])[0] + (humidity * 0.4) - (temp * 0.2),
+            100
+        )))
 
         forecast_data.append({
             "day": f"Day {i+1}",
@@ -146,27 +152,27 @@ async def predict(file: UploadFile = File(...)):
 
 # ================= CHAT =================
 @app.post("/chat")
-async def chat(data: dict):
+async def chat(data: dict = Body(...)):
     try:
         msg = data.get("message", "").strip().lower()
 
-        # ✅ FIX: empty message handle
         if not msg:
             return {"reply": "🤖 Please type something", "reply_hi": "🤖 कुछ लिखें"}
 
         if "rain" in msg:
-            return {"reply": "🌧 Rain expected", "reply_hi": "🌧 बारिश की संभावना"}
+            return {"reply": "🌧 Rain chances depend on humidity",
+                    "reply_hi": "🌧 बारिश नमी पर निर्भर है"}
 
         elif "heat" in msg:
-            return {"reply": "🔥 High heat", "reply_hi": "🔥 गर्मी अधिक"}
+            return {"reply": "🔥 High heat detected",
+                    "reply_hi": "🔥 अधिक गर्मी"}
 
         elif "crop" in msg:
-            return {"reply": "🌾 Check soil & weather before crop selection",
-                    "reply_hi": "🌾 फसल से पहले मिट्टी और मौसम देखें"}
+            return {"reply": "🌾 Choose crop based on soil & weather",
+                    "reply_hi": "🌾 मिट्टी और मौसम के अनुसार फसल चुनें"}
 
-        # ✅ fallback fix
-        return {"reply": "🤖 Monitor weather regularly",
-                "reply_hi": "🤖 मौसम नियमित देखें"}
+        return {"reply": "🤖 Weather looks normal",
+                "reply_hi": "🤖 मौसम सामान्य है"}
 
     except Exception:
         return {"reply": "⚠ Error", "reply_hi": "⚠ त्रुटि"}
