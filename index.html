@@ -163,13 +163,27 @@ function updateChart(temp,rain){
   if(chart) chart.destroy();
 
   chart=new Chart(document.getElementById("weatherChart"),{
-    type:"line",
+    type:"bar",   // 🔥 change here
     data:{
       labels:labels,
       datasets:[
-        {label:"Temp",data:temps},
-        {label:"Rain",data:rains}
+        {
+          label:"Temp",
+          data:temps
+        },
+        {
+          label:"Rain",
+          data:rains
+        }
       ]
+    },
+    options:{
+      responsive:true,
+      scales:{
+        y:{
+          beginAtZero:true
+        }
+      }
     }
   });
 }
